@@ -29,6 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install lightgbm pandas numpy scikit-learn joblib
 
+      
+      # 学習データの保存先フォルダを用意する
+      - name: Create training data directory
+        run: mkdir -p ml
+
       # Cloudflare D1から最新の学習データを取得する
       - name: Export training data from D1
         working-directory: worker
