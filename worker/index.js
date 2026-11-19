@@ -1,5 +1,5 @@
 import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
-
+import { predictWithLightGBM } from './lightgbm.js';
 const ORIGIN = 'https://yu-makita.github.io';
 const RP_ID = 'yu-makita.github.io';
 const SYSTEM = 'あなたは排尿・飲水記録の補助AIです。医学的診断はしません。カフェイン・アルコールの利尿作用は個人差が大きく、予測の不確実性を示してください。飲酒を水分補給の代替として勧めないでください。JSONのみ返してください。';
@@ -119,6 +119,38 @@ export default {
     if(!await limit(env,`ai:${Math.floor(Date.now()/86400000)}`,40,90000))return bad(429,'Daily AI limit reached');
     const input=body.data;
     if(!input || !['predict','advice'].includes(input.mode)||!Array.isArray(input.entries)||input.entries.length>1500)return bad(400,'Invalid input');
+    // 次回排尿予測はGroqではなくLightGBMで実行する
+    if (input.mode === 'predict') {
+      if (!Array.isArray(input.entries)) {
+        return bad(400, 'Invalid entries');
+      }
+
+      try {
+        const remainingMinutes = predictWithLightGBM(
+          input.entries,
+          input.now
+        );
+
+        const nowTime = Date.parse(input.now);
+
+        if (!Number.isFinite(nowTime)) {
+          return bad(400, 'Invalid current time');
+        }
+
+        const predictedAt = new Date(
+          nowTime + Math.max(1, Math.round(remainingMinutes)) * 60000
+        ).toISOString();
+
+        return json({
+          predictedAt,
+          rangeMinutes: 120,
+          reason: '過去の排尿・飲水記録を学習したLightGBMによる予測です。学習データが少ないため、予測には大きな不確実性があります。'
+        });
+      } catch (error) {
+        console.error('LightGBM prediction failed:', error?.message);
+        return bad(422, 'LightGBM prediction unavailable');
+      }
+    }
     const entries=input.entries.filter(e=>e&&['small','large','both','water'].includes(e.kind)&&typeof e.at==='string').map(e=>({kind:e.kind,at:e.at.slice(0,32),category:e.category,ml:e.ml,urge:e.urge,urineAmount:e.urineAmount}));
         // 過去の排尿記録から排尿間隔の統計を計算する
     const urinations = entries
