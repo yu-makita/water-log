@@ -18,7 +18,24 @@ useEffect(()=>{void db.transaction('rw',db.shortcuts,async()=>{const saved=await
 const today=day(localISO());const todayEntries=entries.filter(e=>day(e.at)===today);
 const smallCount=todayEntries.filter(e=>e.kind==='small'||e.kind==='both').length;
 const largeCount=todayEntries.filter(e=>e.kind==='large'||e.kind==='both').length;
-const totals=useMemo(()=>({water:0,caffeine:0,soup:0,...todayEntries.filter(e=>e.kind==='water').reduce((a,e)=>({...a,[e.category??'water']:(a[e.category??'water']??0)+(e.ml??0)}),{} as Record<Category,number>)}),[todayEntries]);
+
+const totals = useMemo(() => {
+  const result: Record<Category, number> = {
+    water: 0,
+    caffeine: 0,
+    soup: 0
+  };
+
+  for (const entry of todayEntries) {
+    if (entry.kind === 'water') {
+      const category = entry.category ?? 'water';
+      result[category] += entry.ml ?? 0;
+    }
+  }
+
+  return result;
+}, [todayEntries]);
+
 const totalMl=totals.water+totals.caffeine+totals.soup;
 const lastSmall=entries.find(e=>e.kind==='small'||e.kind==='both');const lastLarge=entries.find(e=>e.kind==='large'||e.kind==='both');
 const elapsed=(at?:string)=>{if(!at)return '記録なし';const m=Math.max(0,Math.floor((now-new Date(at).getTime())/60000));return `${Math.floor(m/1440)>0?`${Math.floor(m/1440)}日`:''}${Math.floor(m%1440/60)}時間${m%60}分`};
