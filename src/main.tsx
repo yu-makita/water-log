@@ -73,6 +73,29 @@ async function syncEntries() {
     setAiBusy(false);
   }
 }
+// Face ID認証後にLightGBMモデルの再学習を開始する関数
+async function updateModel() {
+  if (!apiUrl.trim()) {
+    alert('AI接続先URLを設定してください');
+    return;
+  }
+
+  setAiBusy(true);
+
+  try {
+    await callAuthenticatedAI(
+      apiUrl.trim(),
+      {},
+      '/model/update'
+    );
+
+    alert('モデルの更新を開始しました。完了まで数分かかります。');
+  } catch (e) {
+    alert(e instanceof Error ? e.message : 'モデル更新に失敗しました');
+  } finally {
+    setAiBusy(false);
+  }
+}
 const lastSmall=entries.find(e=>e.kind==='small'||e.kind==='both');const lastLarge=entries.find(e=>e.kind==='large'||e.kind==='both');
 const elapsed=(at?:string)=>{if(!at)return '記録なし';const m=Math.max(0,Math.floor((now-new Date(at).getTime())/60000));return `${Math.floor(m/1440)>0?`${Math.floor(m/1440)}日`:''}${Math.floor(m%1440/60)}時間${m%60}分`};
 async function quick(entry:Entry){const id=await db.entries.add(entry);setToast({message:'記録しました',entry:{...entry,id}});}
@@ -106,7 +129,21 @@ return <div className="app"><header><strong>トイレ・水分ログ</strong><sp
     <RefreshCw size={17}/>
     {aiBusy ? '同期中…' : '記録をクラウドに同期'}
   </button>
-</section></section><section><h2>水分ショートカット</h2><p className="muted">ラベル、分類、量を変更できます。</p>{shortcuts.map(s=><ShortcutEditor key={s.id} shortcut={s}/>)}<button className="outline full" onClick={async()=>{await db.shortcuts.add({label:'水分200',category:'water',ml:200,order:shortcuts.length})}}><Plus size={16}/>ボタンを追加</button></section><section><h2>バックアップ</h2><p className="muted">記録はこの端末に保存されます。定期的にバックアップをファイルアプリなどに保管してください。</p><button className="outline full" onClick={backup}><Download size={17}/>JSONバックアップを保存</button><label className="upload"><Upload size={17}/>バックアップから復元<input type="file" accept=".json,application/json" hidden onChange={async e=>{if(e.target.files?.[0])await restore(e.target.files[0]);e.target.value=''}}/></label></section></>}
+</section></section><section>
+  <h2>AIモデルの更新</h2>
+  <p className="muted">
+    Cloudflareに保存された記録を使ってLightGBMを再学習します。
+    毎日午前3時にも自動更新されます。
+  </p>
+  <button
+    className="outline full"
+    disabled={aiBusy}
+    onClick={() => void updateModel()}
+  >
+    <RefreshCw size={17}/>
+    {aiBusy ? '更新開始中…' : 'モデルを更新'}
+  </button>
+</section><section><h2>水分ショートカット</h2><p className="muted">ラベル、分類、量を変更できます。</p>{shortcuts.map(s=><ShortcutEditor key={s.id} shortcut={s}/>)}<button className="outline full" onClick={async()=>{await db.shortcuts.add({label:'水分200',category:'water',ml:200,order:shortcuts.length})}}><Plus size={16}/>ボタンを追加</button></section><section><h2>バックアップ</h2><p className="muted">記録はこの端末に保存されます。定期的にバックアップをファイルアプリなどに保管してください。</p><button className="outline full" onClick={backup}><Download size={17}/>JSONバックアップを保存</button><label className="upload"><Upload size={17}/>バックアップから復元<input type="file" accept=".json,application/json" hidden onChange={async e=>{if(e.target.files?.[0])await restore(e.target.files[0]);e.target.value=''}}/></label></section></>}
 </main>{page!=='detail'&&<nav>{([{id:'home',label:'ホーム',icon:House},{id:'history',label:'履歴',icon:History},{id:'settings',label:'設定',icon:Settings}]as const).map(x=><button key={x.id} className={page===x.id?'active':''} onClick={()=>setPage(x.id)}><x.icon size={21}/><span>{x.label}</span></button>)}</nav>}{page==='detail'&&<nav><button onClick={()=>setPage('home')}>ホームに戻る</button></nav>}{toast&&<div className="toast"><span>{toast.message}</span>{toast.entry&&<button onClick={async()=>{if(toast.entry?.id)await db.entries.delete(toast.entry.id);setToast(null)}}><Undo2 size={16}/>取り消し</button>}<button onClick={()=>setToast(null)}>閉じる</button></div>}</div>}
 function EntryRow({entry,onEdit}:{entry:Entry;onEdit:()=>void}){return <button className="entry" onClick={onEdit}><span>{entry.kind==='water'?`${categories[entry.category??'water']} ${entry.ml}mL`:`トイレ（${kinds[entry.kind]}）`}{entry.urge!==undefined?'・尿意'+entry.urge:''}{entry.stool!==undefined?'・便タイプ'+entry.stool:''}</span><span>{entry.at.slice(11,16)} <Pencil size={13}/></span></button>}
 function ShortcutEditor({shortcut:s}:{shortcut:Shortcut}){const[label,setLabel]=useState(s.label);const[ml,setMl]=useState(s.ml);const[category,setCategory]=useState<Category>(s.category);return <div className="shortcut-editor"><input aria-label="ボタン名" value={label} onChange={e=>setLabel(e.target.value)}/><select value={category} onChange={e=>setCategory(e.target.value as Category)}>{(['water','caffeine','soup','alcohol']as Category[]).map(c=><option key={c} value={c}>{categories[c]}</option>)}</select><input aria-label="量" type="number" min="1" step="1" value={ml} onChange={e=>setMl(Number(e.target.value))}/><button className="outline" onClick={async()=>{if(!label.trim()||!Number.isInteger(ml)||ml<1){alert('名前と1mL以上の量を入力してください');return}await db.shortcuts.update(s.id!,{label,category,ml})}}>保存</button><button className="danger" onClick={async()=>{if(confirm('このボタンを削除しますか？'))await db.shortcuts.delete(s.id!)}}><Trash2 size={16}/></button></div>}

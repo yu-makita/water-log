@@ -50,7 +50,11 @@ export default {
     return json({options,token});
    }
    // AI予測と記録同期の両方でFace ID認証を行う
-  if (url.pathname === '/ai' || url.pathname === '/sync') {
+  if (
+    url.pathname === '/ai' ||
+    url.pathname === '/sync' ||
+    url.pathname === '/model/update'
+  ) {
     const raw=await env.AUTH_KV.get('credential');if(!raw)return bad(409,'Passkey not registered');
     const c=JSON.parse(raw);
     const challenge=await env.AUTH_KV.get(`auth:${body.token}`);
@@ -115,6 +119,40 @@ export default {
       await env.water_log_db.batch(statements);
 
       return json({ ok: true, synced: entries.length });
+    }
+    // GitHub ActionsでLightGBMの再学習を開始する関数
+    async function triggerModelUpdate() {
+      if (!env.GITHUB_ACTIONS_TOKEN) {
+        return bad(503, 'GitHub token not configured');
+      }
+
+      const response = await fetch(
+        'https://api.github.com/repos/yu-makita/water-log/actions/workflows/train-model.yml/dispatches',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.GITHUB_ACTIONS_TOKEN}`,
+            'Accept': 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+            'User-Agent': 'water-log-ai'
+          },
+          body: JSON.stringify({ ref: 'main' })
+        }
+      );
+
+      if (!response.ok) {
+        console.error('GitHub Actions error:', response.status);
+        return bad(502, 'Model update could not be started');
+      }
+
+      return json({
+        ok: true,
+        message: 'モデル更新を開始しました'
+      });
+    }
+
+    if (url.pathname === '/model/update') {
+      return await triggerModelUpdate();
     }
     if(!await limit(env,`ai:${Math.floor(Date.now()/86400000)}`,40,90000))return bad(429,'Daily AI limit reached');
     const input=body.data;

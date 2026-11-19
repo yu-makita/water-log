@@ -16,7 +16,7 @@ export async function registerPasskey(url:string,setupSecret:string){
 export async function callAuthenticatedAI(
   url: string,
   data: unknown,
-  path: '/ai' | '/sync' = '/ai'
+  path: '/ai' | '/sync' | '/model/update' = '/ai'
 ) {
   const { options, token } = await post(url, '/auth/options', {});
 
