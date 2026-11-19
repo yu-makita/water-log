@@ -52,7 +52,6 @@ jobs:
         run: python ml/export_model.py
 
 
-      # 再学習したモデルをCloudflare Workerへ反映する
       - name: Deploy updated model to Cloudflare Worker
         working-directory: worker
         env:
