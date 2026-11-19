@@ -12,9 +12,21 @@ export async function registerPasskey(url:string,setupSecret:string){
  await post(url,'/register/verify',{setupSecret,token,response});
 }
 
-// AI実行のたびにパスキー認証を行い、認証結果とAI入力を同時に送る関数
-export async function callAuthenticatedAI(url:string,data:unknown){
- const {options,token}=await post(url,'/auth/options',{});
- const assertion=await startAuthentication({optionsJSON:options});
- return post(url,'/ai',{token,assertion,data});
+// AI予測・記録同期の実行前にパスキー認証を行う関数
+export async function callAuthenticatedAI(
+  url: string,
+  data: unknown,
+  path: '/ai' | '/sync' = '/ai'
+) {
+  const { options, token } = await post(url, '/auth/options', {});
+
+  const assertion = await startAuthentication({
+    optionsJSON: options
+  });
+
+  return post(url, path, {
+    token,
+    assertion,
+    data
+  });
 }

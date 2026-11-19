@@ -1,0 +1,23 @@
+name = "water-log-ai"
+main = "index.js"
+compatibility_date = "2026-11-19"
+preview_urls = false
+
+[vars]
+GROQ_MODEL = "qwen/qwen3.8-27b"
+
+# Cloudflare dashboardでKV Namespaceを作成し、実際のIDに置き換えること
+[[kv_namespaces]]
+binding = "AUTH_KV"
+id = "f2c36a4b81514d429d039007e1c8d234"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+
+[[d1_databases]]
+binding = "water_log_db"
+database_name = "water-log-db"
+database_id = "09848ee3-1b12-494e-ad2e-2578b0ab34d0"

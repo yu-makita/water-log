@@ -1,0 +1,1 @@
+{"name":"water-log-faceid-worker","private":true,"type":"module","dependencies":{"@simplewebauthn/server":"^13.2.0"},"devDependencies":{"wrangler":"^4.0.0"},"scripts":{"deploy":"wrangler deploy"}}
